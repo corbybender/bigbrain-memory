@@ -17,7 +17,7 @@ coding agents.
 ### Setup
 
 ```bash
-pip install git+https://github.com/CGB2_Valmont/bigbrain.git
+pip install git+https://github.com/corbybender/bigbrain-memory.git
 cd /path/to/your/project
 bigbrain install
 ```
@@ -55,7 +55,7 @@ and resolves contradictions.
 ### Install into a repo
 
 ```bash
-pip install git+https://github.com/CGB2_Valmont/bigbrain.git
+pip install git+https://github.com/corbybender/bigbrain-memory.git
 cd /path/to/your/project
 bigbrain install
 ```
