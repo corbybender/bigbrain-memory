@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bigbrain-memory"
+version = "1.0.0"
+description = "Deterministic, filesystem-first memory and context-management engine for LLM coding agents."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "BigBrain Contributors" }]
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+bigbrain = "bigbrain.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bigbrain*"]

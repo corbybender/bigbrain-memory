@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# BigBrain runtime state is per-project; don't ship this repo's own test state
+.bigbrain/.lock
