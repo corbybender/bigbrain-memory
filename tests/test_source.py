@@ -1,6 +1,7 @@
 """Source retrieval contracts, CLI and actual stdio MCP integration."""
 import concurrent.futures
-from contextlib import closing
+from contextlib import closing, redirect_stderr
+import io
 import hashlib
 import json
 import os
@@ -13,7 +14,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from bigbrain import core, source, install
+from bigbrain import core, source, install, cli
 
 
 class SourceTests(unittest.TestCase):
@@ -290,6 +291,67 @@ class SourceTests(unittest.TestCase):
             proc = self.cli("--path", str(self.root), *args)
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertIsInstance(json.loads(proc.stdout), dict)
+            self.assertIn("Scanning", proc.stderr)
+            self.assertIn("Source index ready:", proc.stderr)
+
+    def test_old_cache_migrates_without_reindexing_or_memory_changes(self):
+        core.init_engine(self.root)
+        before = core.read_memory(self.root, "architecture")
+        self.put("app.py", "oldneedle")
+        source.refresh(self.root)
+        db = self.root / ".bigbrain/cache/source.sqlite3"
+        with closing(sqlite3.connect(str(db))) as conn:
+            conn.execute("DROP TABLE chunk_paths")
+            conn.execute("UPDATE meta SET value='1' WHERE key='version'")
+            conn.commit()
+        report = source.refresh(self.root)
+        self.assertEqual(report["updated"], 0)
+        self.put("app.py", "newneedle")
+        self.assertFalse(source.search(self.root, "oldneedle")["results"])
+        self.assertTrue(source.search(self.root, "newneedle")["results"])
+        self.assertEqual(core.read_memory(self.root, "architecture"), before)
+
+    def test_ctrl_c_rolls_back_source_transaction_and_releases_lock(self):
+        core.init_engine(self.root)
+        memory_before = core.read_memory(self.root, "architecture")
+        self.put("app.py", "oldcontent")
+        source.refresh(self.root)
+        self.put("app.py", "newcontent")
+        stderr = io.StringIO()
+        with mock.patch.object(source, "_tokens", side_effect=KeyboardInterrupt()), redirect_stderr(stderr):
+            result = cli.main(["--path", str(self.root), "source-status"])
+        self.assertEqual(result, 130)
+        self.assertIn("memory is unchanged", stderr.getvalue())
+        self.assertFalse((self.root / ".bigbrain/cache/source.lock").exists())
+        with closing(sqlite3.connect(str(self.root / ".bigbrain/cache/source.sqlite3"))) as conn:
+            self.assertEqual(conn.execute("SELECT text FROM files WHERE path='app.py'").fetchone()[0], "oldcontent")
+        self.assertEqual(core.read_memory(self.root, "architecture"), memory_before)
+        self.assertTrue(source.search(self.root, "newcontent")["results"])
+
+    def test_chunk_mapping_stays_consistent_and_uses_indexed_deletion(self):
+        for n in range(20):
+            self.put(f"module{n}.py", "\n".join([f"needle{n}"] * 100))
+        queries = []
+        original = source._connect
+        def traced(db):
+            conn = original(db)
+            conn.set_trace_callback(queries.append)
+            return conn
+        with mock.patch.object(source, "_connect", traced):
+            source.refresh(self.root)
+            self.assertFalse(any("DELETE FROM chunks" in q for q in queries))
+            self.put("module1.py", "changedneedle")
+            (self.root / "module2.py").unlink()
+            source.refresh(self.root)
+        self.assertFalse(any("DELETE FROM chunks WHERE path=" in q for q in queries))
+        self.assertTrue(any("SELECT chunk_id FROM chunk_paths" in q for q in queries))
+        with closing(sqlite3.connect(str(self.root / ".bigbrain/cache/source.sqlite3"))) as conn:
+            actual = set(conn.execute("SELECT rowid, path FROM chunks"))
+            self.assertEqual(actual, set(conn.execute("SELECT chunk_id, path FROM chunk_paths")))
+            plan = str(conn.execute("EXPLAIN QUERY PLAN SELECT chunk_id FROM chunk_paths WHERE path=?", ("module1.py",)).fetchall())
+            self.assertIn("chunk_paths_by_path", plan)
+        self.assertFalse(source.search(self.root, "needle1")["results"])
+        self.assertFalse(source.search(self.root, "needle2")["results"])
 
     def test_cli_path_positions_and_errors(self):
         self.put("app.py", "clineedle")

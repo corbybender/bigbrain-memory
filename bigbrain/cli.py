@@ -133,19 +133,25 @@ def _cmd_source(args: argparse.Namespace) -> int:
     from . import source
     try:
         root = Path(args.path)
+        def progress(message):
+            print(f"[BigBrain] {message}", file=sys.stderr, flush=True)
         if args.command == "source-refresh":
-            result = source.refresh(root, rebuild=args.rebuild)
+            result = source.refresh(root, rebuild=args.rebuild, progress=progress)
         elif args.command == "source-status":
-            result = source.status(root)
+            result = source.status(root, progress=progress)
         elif args.command == "source-search":
-            result = source.search(root, args.query, top_n=args.top)
+            result = source.search(root, args.query, top_n=args.top, progress=progress)
         elif args.command == "source-files":
-            result = source.list_files(root, args.prefix, args.limit, args.offset)
+            result = source.list_files(root, args.prefix, args.limit, args.offset, progress=progress)
         else:
-            result = source.read(root, args.file, args.start_line, args.max_lines)
+            result = source.read(root, args.file, args.start_line, args.max_lines, progress=progress)
         print(json.dumps(result, indent=2))
         report = result.get("status", result)
         return 0 if report["complete"] else 1
+    except KeyboardInterrupt:
+        print("[BigBrain] Source indexing interrupted. Uncommitted source-cache updates are rolled back; memory is unchanged.",
+              file=sys.stderr, flush=True)
+        return 130
     except (source.SourceError, core.LockError, OSError) as exc:
         print(f"[BigBrain] Error: {exc}", file=sys.stderr)
         return 1

@@ -100,6 +100,15 @@ installation and reconnect its MCP host as described above.
 
 ## Recovery
 
+In version 1.1.1 and later, CLI source operations show progress on stderr
+while retaining JSON on stdout. Discovery and scanning counts include paths
+that will be excluded; the eligible/indexed file counts reflect actual scope.
+If a first build takes time, the progress counters distinguish scanning,
+indexing and committing. Ctrl+C rolls back uncommitted source-cache updates;
+the next source command reconciles again. Existing 1.1 caches automatically
+gain indexed chunk lookup metadata on their next source call. Do not delete
+Markdown memory to recover a slow or damaged source index.
+
 - No source tools in the host: check package version, run `bigbrain install
   --force` in the target project, and reconnect the server. For other MCP
   hosts, check their configured command and root too.

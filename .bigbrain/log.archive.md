@@ -56,3 +56,17 @@ Documentation audit found that README covered source tools but needed explicit f
 ### Details
 README, docs/setup.md, installer config comments and generated agent guidance updates pushed in 8ca4ebc. All four Windows/Linux Python 3.9/3.13 jobs passed in https://github.com/corbybender/bigbrain-memory/actions/runs/42851350938. Fresh install, upgrade, lazy automatic indexing, host reconnection, moved roots and recovery are documented. No runtime indexing changes in this follow-up.
 ---
+
+## [2026-11-10T16:39:18Z] - TYPE: TASK_UPDATE
+- TARGET: active_tasks
+- SUMMARY: Diagnose silent slow initial indexing on a large repository
+### Details
+User source-status process on Q:\valedit2026 remains CPU-active with a growing SQLite cache after several minutes; Git discovers about 47848 paths before exclusions. Identified repeated full FTS path scans, including for brand-new files, in refresh. Implementing indexed chunk rowid mapping with in-place v1 cache migration, skipping deletes for new files, throttled stderr CLI progress and a synthetic multi-thousand-file regression benchmark. Existing user run left undisturbed and no memory files modified by diagnostics.
+---
+
+## [2026-11-10T16:44:04Z] - TYPE: TASK_UPDATE
+- TARGET: active_tasks
+- SUMMARY: Large-repository indexing completed with progress and memory unchanged
+### Details
+Fix installed locally as 1.1.1. Stopped only verified original source-status worker PID 13740 after validating the new implementation; SQLite rolled back the interrupted derived-cache transaction. A user source-files command acquired the lock and completed the updated build: 16665 eligible files, zero read errors, schema v2. Follow-up source-status completed with zero updated/removed files. SHA-256 comparison of all 14 existing memory/log Markdown files found zero changes. Added indexed chunk mapping, no deletes for new files, in-place v1 migration, stderr progress and Ctrl+C rollback handling. All 19 memory and 28 source tests pass; one real Windows symlink test skips. Added 3000-file synthetic cold/warm/edit-delete scale benchmark and 1000-file CI smoke check.
+---

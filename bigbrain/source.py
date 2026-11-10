@@ -12,13 +12,14 @@ import re
 import sqlite3
 import stat
 import subprocess
+import time
 from collections import Counter
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 from . import core
 
-VERSION = 1
+VERSION = 2
 DEFAULT_EXCLUDE = ["dist", "build", "generated", "coverage", "vendor"]
 PRIVATE_DIRS = {".git", ".bigbrain", "node_modules", ".venv", "venv", "__pycache__"}
 PRIVATE_FILES = {".env", ".npmrc", ".pypirc", "credentials", "id_rsa", "id_ed25519"}
@@ -27,6 +28,20 @@ PRIVATE_SUFFIXES = {".pem", ".key", ".pfx", ".p12", ".keystore"}
 
 class SourceError(RuntimeError):
     """An actionable source-index failure; memory remains usable."""
+
+
+class _Progress:
+    def __init__(self, callback=None):
+        self.callback = callback
+        self.last = 0.0
+
+    def emit(self, message, force=False):
+        if self.callback is None:
+            return
+        now = time.monotonic()
+        if force or now - self.last >= 1.0:
+            self.callback(message)
+            self.last = now
 
 
 def _git(root: Path, *args: str, input_data=None, allow_no_match=False):
@@ -99,7 +114,9 @@ def _safe_path(root, rel):
     return target
 
 
-def _snapshot(root):
+def _snapshot(root, progress=None):
+    progress = progress or _Progress()
+    progress.emit("Discovering source paths with Git...", force=True)
     settings = _settings(root)
     raw = _git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ".")
     # --no-index also excludes tracked files matching ignore rules.
@@ -107,7 +124,10 @@ def _snapshot(root):
                    input_data=raw, allow_no_match=True) if raw else b""
     ignored_set = set(ignored.split(b"\0"))
     files, skipped, errors = {}, Counter(), []
-    for name in sorted(set(raw.split(b"\0")) - {b""}):
+    names = sorted(set(raw.split(b"\0")) - {b""})
+    progress.emit(f"Scanning {len(names):,} discovered paths...", force=True)
+    for number, name in enumerate(names, 1):
+        progress.emit(f"Scanning source: {number:,}/{len(names):,} paths; {len(files):,} eligible files")
         try:
             rel = name.decode("utf-8")
         except UnicodeDecodeError:
@@ -145,6 +165,7 @@ def _snapshot(root):
             skipped["unsafe_path"] += 1
         except OSError as exc:
             errors.append({"path": rel, "error": str(exc)[:300]})
+    progress.emit(f"Scan complete: {len(files):,} eligible files; {len(errors):,} read errors", force=True)
     return files, {"skipped": dict(skipped), "errors": errors[:50], "error_count": len(errors),
                    "errors_truncated": len(errors) > 50, "settings": settings}
 
@@ -161,8 +182,15 @@ def _connect(db):
         conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
         conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(path, terms, text UNINDEXED, start UNINDEXED, end UNINDEXED)")
         version = conn.execute("SELECT value FROM meta WHERE key='version'").fetchone()
-        if version and version[0] != str(VERSION):
+        if version and version[0] not in ("1", str(VERSION)):
             raise SourceError("Unsupported source index version; run source-refresh --rebuild.")
+        conn.execute("CREATE TABLE IF NOT EXISTS chunk_paths (chunk_id INTEGER PRIMARY KEY, path TEXT NOT NULL)")
+        conn.execute("CREATE INDEX IF NOT EXISTS chunk_paths_by_path ON chunk_paths(path)")
+        if version and version[0] == "1":
+            # Upgrade derived metadata in place, without rereading/reindexing
+            # unchanged files or touching any Markdown memory.
+            conn.execute("DELETE FROM chunk_paths")
+            conn.execute("INSERT INTO chunk_paths SELECT rowid, path FROM chunks")
         conn.execute("INSERT OR REPLACE INTO meta VALUES ('version', ?)", (str(VERSION),))
         conn.commit()
         return conn
@@ -193,56 +221,70 @@ def _cache(root):
     return db
 
 
-def refresh(root, rebuild=False):
+def _delete_chunks(conn, rel):
+    conn.execute("DELETE FROM chunks WHERE rowid IN (SELECT chunk_id FROM chunk_paths WHERE path=?)", (rel,))
+    conn.execute("DELETE FROM chunk_paths WHERE path=?", (rel,))
+
+
+def refresh(root, rebuild=False, progress=None):
     """Hash current eligible files; transactionally replace changed chunks only."""
     root = _root(root)
     if type(rebuild) is not bool:
         raise SourceError("rebuild must be a boolean.")
     db = _cache(root)
+    progress = _Progress(progress)
+    progress.emit("Waiting for the source index lock...", force=True)
     lock = replace(core.paths(root), lock_file=db.parent / "source.lock")
     with core.file_lock(lock, timeout=30, stale_after=3600):
-        files, report = _snapshot(root)
+        files, report = _snapshot(root, progress)
         if rebuild and db.exists():
             db.unlink()  # Derived data only; memory is never touched.
         conn = None
         try:
+            progress.emit("Opening source cache (upgrading derived metadata if needed)...", force=True)
             conn = _connect(db)
             with conn:
                 old = dict(conn.execute("SELECT path, hash FROM files"))
                 removed = set(old) - set(files)
                 for rel in removed:
                     conn.execute("DELETE FROM files WHERE path=?", (rel,))
-                    conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
+                    _delete_chunks(conn, rel)
                 updated = 0
-                for rel, (digest, text, size) in files.items():
+                progress.emit(f"Updating source index: {len(files):,} eligible files...", force=True)
+                for number, (rel, (digest, text, size)) in enumerate(files.items(), 1):
+                    progress.emit(f"Updating source index: {number:,}/{len(files):,} files; {updated:,} changed")
                     if old.get(rel) == digest:
                         continue
                     updated += 1
                     conn.execute("INSERT OR REPLACE INTO files VALUES (?, ?, ?, ?)", (rel, digest, text, size))
-                    conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
+                    if rel in old:
+                        _delete_chunks(conn, rel)
                     lines = text.splitlines()
                     for start in range(0, max(1, len(lines)), 40):
                         chunk = "\n".join(lines[start:start + 40])
-                        conn.execute("INSERT INTO chunks VALUES (?, ?, ?, ?, ?)",
-                                     (rel, " ".join(_tokens(rel + " " + chunk)), chunk, start + 1,
-                                      min(start + 40, len(lines))))
+                        cursor = conn.execute("INSERT INTO chunks VALUES (?, ?, ?, ?, ?)",
+                                              (rel, " ".join(_tokens(rel + " " + chunk)), chunk, start + 1,
+                                               min(start + 40, len(lines))))
+                        conn.execute("INSERT INTO chunk_paths VALUES (?, ?)", (cursor.lastrowid, rel))
                 stamp = core._now()
                 report.update({"indexed_files": len(files), "updated": updated, "removed": len(removed),
                                "unchanged": len(files) - updated, "checked_at": stamp,
                                "complete": not report["errors"], "root": str(root),
                                "freshness": "working-tree snapshot; files may change after checked_at"})
                 conn.execute("INSERT OR REPLACE INTO meta VALUES ('report', ?)", (json.dumps(report),))
+                progress.emit("Committing source index...", force=True)
         except sqlite3.Error as exc:
             raise SourceError("Source cache unavailable; run source-refresh --rebuild. " + str(exc)) from exc
         finally:
             if conn is not None:
                 conn.close()
+    progress.emit(f"Source index ready: {len(files):,} files; {updated:,} updated; {len(removed):,} removed", force=True)
     return report
 
 
-def status(root):
+def status(root, progress=None):
     # A status check is a real reconciliation, not an unverified timestamp.
-    return refresh(root)
+    return refresh(root, progress=progress)
 
 
 def _limit(value, name, maximum):
@@ -250,12 +292,12 @@ def _limit(value, name, maximum):
         raise SourceError(f"{name} must be an integer between 1 and {maximum}.")
 
 
-def search(root, query, top_n=8):
+def search(root, query, top_n=8, progress=None):
     _limit(top_n, "top_n", 50)
     if not isinstance(query, str) or not query.strip() or len(query) > 2000:
         raise SourceError("query must contain 1 to 2000 characters.")
     terms = list(dict.fromkeys(_tokens(query)))[:32]
-    report = refresh(root)
+    report = refresh(root, progress=progress)
     if not terms:
         return {"status": report, "results": []}
     match = " OR ".join('"' + term + '"' for term in terms)
@@ -290,7 +332,7 @@ def search(root, query, top_n=8):
     return {"status": report, "results": results}
 
 
-def read(root, path, start_line=1, max_lines=80):
+def read(root, path, start_line=1, max_lines=80, progress=None):
     _limit(start_line, "start_line", 10_000_000)
     _limit(max_lines, "max_lines", 200)
     if not isinstance(path, str) or not path:
@@ -298,7 +340,7 @@ def read(root, path, start_line=1, max_lines=80):
     root = _root(root)
     rel = path.replace("\\", "/")
     _safe_path(root, rel)
-    report = refresh(root)
+    report = refresh(root, progress=progress)
     conn = sqlite3.connect(str(_cache(root)))
     try:
         conn.execute("BEGIN")
@@ -319,7 +361,7 @@ def read(root, path, start_line=1, max_lines=80):
             "text": excerpt[:16000], "truncated": len(excerpt) > 16000 or start_line - 1 + len(selected) < len(lines)}
 
 
-def list_files(root, prefix="", limit=100, offset=0):
+def list_files(root, prefix="", limit=100, offset=0, progress=None):
     """Bounded, deterministic inventory for agents that need to browse the tree."""
     _limit(limit, "limit", 200)
     if type(offset) is not int or not 0 <= offset <= 1_000_000:
@@ -330,7 +372,7 @@ def list_files(root, prefix="", limit=100, offset=0):
     prefix = prefix.replace("\\", "/")
     if prefix:
         _safe_path(root, prefix)
-    refresh(root)
+    refresh(root, progress=progress)
     conn = sqlite3.connect(str(_cache(root)))
     try:
         conn.execute("BEGIN")

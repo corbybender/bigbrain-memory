@@ -7,6 +7,10 @@ Version 1.1 adds a local, rebuildable **source index** alongside the existing
 Markdown memory. Agents can browse, search and read current source through
 either the CLI or MCP. Existing memory commands and formats are unchanged.
 
+Version 1.1.1 adds live CLI progress and indexed chunk cleanup for large
+repositories. Existing 1.1 caches upgrade their derived metadata automatically;
+no memory migration or manual cache deletion is required.
+
 ## New installation
 
 Requirements: Python 3.9+, Git, and Python's SQLite with FTS5 support (included
@@ -26,7 +30,7 @@ refresh it automatically. No enable flag, API key, scheduled task or watcher
 setup is required. The status report should show `complete: true` and an
 appropriate `indexed_files` count for the eligible files in your project.
 
-## Upgrade an existing project to 1.1
+## Upgrade an existing project to 1.1.1
 
 ```bash
 python -m pip install --upgrade "git+https://github.com/corbybender/bigbrain-memory.git"
@@ -67,6 +71,12 @@ before every query, so edits, renames, deletions, ignore changes and branch
 switches are reflected without manual refresh. Eligible files are hashed on
 every scan; unchanged files reuse their indexed chunks. This detects edits
 even when file size and modification time are unchanged.
+
+CLI source commands print discovery, scanning, indexing and commit progress
+to stderr; stdout remains JSON for scripts. Large first builds can take time.
+Ctrl+C cancels the operation and rolls back uncommitted source-cache changes
+without changing memory. MCP calls do not print CLI progress into their
+protocol stream; use the CLI for the initial build of a large repository.
 
 The source index is disposable SQLite/FTS5 data under `.bigbrain/cache/`,
 automatically excluded from Git by a cache-local ignore file. Markdown memory

@@ -1,0 +1,17 @@
+{
+  "scope": "synthetic 80-line Python files; not a real-repository or agent benchmark",
+  "os": "Windows",
+  "python": "3.13.17",
+  "files": 3000,
+  "seconds": {
+    "cold": 2.249,
+    "warm": 1.111,
+    "edit_delete": 1.129
+  },
+  "cache_bytes": 58167296,
+  "updated": {
+    "cold": 3000,
+    "warm": 0,
+    "edit_delete": 1
+  }
+}
