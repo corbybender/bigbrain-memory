@@ -35,3 +35,10 @@ Completed source inventory/search/read/status/rebuild through CLI and five MCP t
 ### Details
 Implementation committed locally as 18192f5 and installed as editable BigBrain 1.1.0. Final local Python 3.13 validation: 19 memory tests plus 25 source/integration tests pass, one real symlink test skipped; six benchmark queries find expected files. git push origin main failed because no non-interactive credential was available. GitHub CLI and connected GitHub app both use CGB2_Valmont, which has READ permission on corbybender/bigbrain-memory. Remote main remains 978fb18949814b3104b782beac0927c2cc3b0fce. Push and Windows/Linux CI verification remain pending an account with write access. Source cache is ignored; no source changes remain outside the local commits.
 ---
+
+## [2026-11-10T16:04:18Z] - TYPE: TASK_UPDATE
+- TARGET: active_tasks
+- SUMMARY: Upstream source indexing delivery complete; cross-platform CI passed
+### Details
+User switched GitHub login; git push origin main succeeded. Implementation and initial memory commits are upstream through a3e9227c38dd0bc740f0047fc641f1e325e30169. GitHub Actions run https://github.com/corbybender/bigbrain-memory/actions/runs/42850581163 passed all four matrix jobs: Windows and Ubuntu with Python 3.9 and 3.13, covering existing memory tests, source integration tests and retrieval benchmark. Prior authentication blocker is resolved. Recording this result as memory-only follow-up; no runtime changes.
+---
