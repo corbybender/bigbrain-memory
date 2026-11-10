@@ -1,9 +1,9 @@
 # BigBrain System Index
-> Last Compiled: 2026-11-10T16:07:08Z | Active Files: 5 | Schema Version: 1.0.0
+> Last Compiled: 2026-11-10T16:09:16Z | Active Files: 5 | Schema Version: 1.0.0
 
 | File ID | Path | Domain | Summary | Token Est |
 | :--- | :--- | :--- | :--- | :--- |
-| `active_tasks` | `memory/active_tasks.md` | State | Current Milestone | 913 |
+| `active_tasks` | `memory/active_tasks.md` | State | Current Milestone | 1041 |
 | `architecture` | `memory/architecture.md` | Tech | Component Overview | 292 |
 | `decisions` | `memory/decisions.md` | History | Decision Register | 39 |
 | `domain_knowledge` | `memory/domain_knowledge.md` | Context | Business Rules & External Contracts | 48 |

@@ -2,7 +2,7 @@
 id: active_tasks
 title: Active Tasks
 domain: State
-last_updated: '2026-11-10T16:07:08Z'
+last_updated: '2026-11-10T16:09:16Z'
 tags:
 - tasks
 - roadmap
@@ -30,3 +30,7 @@ schema_version: 1.0.0
 ## Log Reconciliation (2026-11-10T16:07:08Z)
 - **[TASK_UPDATE]** Clarify fresh setup, upgrades and automatic source indexing
   - Documentation audit found that README covered source tools but needed explicit fresh-install/upgrade steps, lazy initialization, host reconnection and root relocation guidance. Added docs/setup.md with Windows interpreter checks, verification and recovery; updated directory layout, CLI and MCP tool lists and generated agent rules. Installer config template now documents optional source settings without changing defaults or overwriting existing config.
+
+## Log Reconciliation (2026-11-10T16:09:16Z)
+- **[TASK_UPDATE]** Setup documentation follow-up delivered and CI verified
+  - README, docs/setup.md, installer config comments and generated agent guidance updates pushed in 8ca4ebc. All four Windows/Linux Python 3.9/3.13 jobs passed in https://github.com/corbybender/bigbrain-memory/actions/runs/42851350938. Fresh install, upgrade, lazy automatic indexing, host reconnection, moved roots and recovery are documented. No runtime indexing changes in this follow-up.
