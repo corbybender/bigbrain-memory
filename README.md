@@ -7,6 +7,45 @@ Version 1.1 adds a local, rebuildable **source index** alongside the existing
 Markdown memory. Agents can browse, search and read current source through
 either the CLI or MCP. Existing memory commands and formats are unchanged.
 
+## New installation
+
+Requirements: Python 3.9+, Git, and Python's SQLite with FTS5 support (included
+in the standard Windows/macOS Python installers and common Linux packages).
+
+```bash
+python -m pip install "git+https://github.com/corbybender/bigbrain-memory.git"
+cd /path/to/your/project
+bigbrain install
+bigbrain source-status
+```
+
+Run these commands in the project you want BigBrain to understand. Memory
+works without Git; source indexing requires a Git working tree. The first
+source command creates the index automatically, and subsequent source commands
+refresh it automatically. No enable flag, API key, scheduled task or watcher
+setup is required. The status report should show `complete: true` and an
+appropriate `indexed_files` count for the eligible files in your project.
+
+## Upgrade an existing project to 1.1
+
+```bash
+python -m pip install --upgrade "git+https://github.com/corbybender/bigbrain-memory.git"
+cd /path/to/your/project
+bigbrain install --force
+bigbrain source-status
+```
+
+Use the Python environment that supplies your `bigbrain` command. Repeat
+`bigbrain install --force` in each existing project to refresh its agent
+instructions, MCP registration and tool schema. Existing memory and
+configuration settings are preserved; no memory migration or manual source
+index creation is needed. Restart/reconnect the MCP host afterward so it
+discovers the five new source tools. If you move or clone a project, rerun
+`bigbrain install --force` there to update its absolute MCP project root.
+
+See [setup and troubleshooting](docs/setup.md) for Windows interpreter checks,
+verification, automatic update behavior and recovery.
+
 ## Source context
 
 ```bash
@@ -115,7 +154,7 @@ or performance on large repositories.
 ### Setup
 
 ```bash
-pip install git+https://github.com/corbybender/bigbrain-memory.git
+python -m pip install git+https://github.com/corbybender/bigbrain-memory.git
 cd /path/to/your/project
 bigbrain install
 ```
@@ -153,7 +192,7 @@ and resolves contradictions.
 ### Install into a repo
 
 ```bash
-pip install git+https://github.com/corbybender/bigbrain-memory.git
+python -m pip install git+https://github.com/corbybender/bigbrain-memory.git
 cd /path/to/your/project
 bigbrain install
 ```
@@ -181,7 +220,13 @@ bigbrain install
      auto-injects `INDEX.md` into context, so the agent never has to
      remember to read it either.
 6. Drops `.bigbrain/config.yml` with commented defaults for the LLM CLI
-   override and archive rotation size (below).
+   override, archive rotation size and optional source settings. Existing
+   configuration is preserved, including with `--force`.
+
+Source indexing initializes lazily on the first source command or MCP source
+tool call; `install` does not crawl the repository. Every source query then
+reconciles changes automatically. Memory compile hooks only compile memory;
+they do not run source indexing in the background.
 
 Re-running `bigbrain install` is idempotent (existing hooks/files aren't
 duplicated). Pass `--force` to refresh the wiring blocks after upgrading
@@ -199,6 +244,9 @@ overwriting it.
 ├── log.archive.<ts>.md   # rotated-out archive segments, once log.archive.md exceeds archive_max_bytes
 ├── config.yml            # llm_command override, archive_max_bytes
 ├── tools.json            # raw tool schemas for function-calling hosts
+├── cache/                # disposable, Git-ignored; created by first source query
+│   ├── .gitignore        # excludes this cache directory's contents
+│   └── source.sqlite3    # source inventory and FTS5 search chunks
 └── memory/
     ├── system_invariants.md
     ├── architecture.md
@@ -217,6 +265,11 @@ bigbrain index                    # print INDEX.md
 bigbrain read <file_id>           # print one memory file
 bigbrain grep <term>              # exact-substring fallback search when you don't know the file_id
 bigbrain search <query>           # ranked fuzzy/word-overlap search when you don't know the exact wording either
+bigbrain source-status           # reconcile source and report scope/freshness/errors
+bigbrain source-files            # browse eligible source inventory (paginated)
+bigbrain source-search "query"   # reconcile and search current source/docs
+bigbrain source-read <path>      # reconcile and read bounded source lines
+bigbrain source-refresh --rebuild # recover/rebuild disposable source cache only
 bigbrain doctor [--fix]           # validate .bigbrain/ (stale locks, bad frontmatter, stale index); repair with --fix
 bigbrain log --type DECISION --target decisions \
   --summary "Chose SQLite for log indexing" \
@@ -305,6 +358,11 @@ against — `doctor --fix` is the migration command.
    guessing at project structure or past decisions.
 2. Pull a specific memory file on demand (`bigbrain read architecture`) when
    it needs deep context on a domain.
+   For current implementation, browse with `list_source_files`, search with
+   `search_source`, then inspect with `read_source` (or their `source-*` CLI
+   equivalents). Those tools create/refresh the source index automatically.
+   Check the coverage report and cite source paths/lines; use memory for intent
+   and decisions rather than assuming it describes unchanged code.
 3. Log non-trivial decisions, task-state changes, learnings, and invariants
    as they happen (`bigbrain log ...`), rather than trying to remember them.
 4. Trigger compilation at milestones or session end (`bigbrain compile`) to
@@ -316,7 +374,9 @@ For hosts with native MCP tool-calling, `bigbrain serve-mcp` exposes six memory
 tools and five source tools matching `bigbrain/schemas.py` / `.bigbrain/tools.json`:
 `read_index`, `read_memory_file`, `append_transaction_log`, `compile_memory`
 (with an optional `use_llm` argument), `search_memory` (ranked fuzzy
-discovery), and `grep_memory` (exact substring). It speaks newline-delimited
+discovery), and `grep_memory` (exact substring). Source tools are
+`source_status`, `list_source_files`, `refresh_source_index`, `search_source`
+and `read_source`. It speaks newline-delimited
 JSON-RPC 2.0 over stdio — no MCP SDK dependency.
 
 ### Library usage
@@ -333,6 +393,6 @@ core.compile_memory(Path("."), reason="milestone")
 ### Tests
 
 ```bash
-pip install -e .
+python -m pip install -e .
 python tests/test_core.py
 ```

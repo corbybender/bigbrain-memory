@@ -153,7 +153,7 @@ def shell_wiring_block(cli_name: str = "bigbrain") -> str:
     return f"""<!-- BEGIN BIGBRAIN -->
 ## BigBrain Memory System
 
-This project uses [BigBrain](https://github.com/) for deterministic,
+This project uses [BigBrain](https://github.com/corbybender/bigbrain-memory) for deterministic,
 filesystem-first memory. Project memory lives in plain Markdown under `.bigbrain/`;
 the optional source index is a disposable local cache.
 
@@ -178,6 +178,8 @@ the optional source index is a disposable local cache.
 | Validate and repair .bigbrain/ (stale locks, missing frontmatter, stale index, schema migration) | `{cli_name} doctor --fix` |
 
 Rules:
+- The first source tool call creates the source index automatically; every subsequent source call reconciles working-tree changes. No enable step or watcher setup is needed. Memory compile hooks do not refresh source in the background.
+- When native source MCP tools are available, prefer `source_status`, `list_source_files`, `search_source`, `read_source` and `refresh_source_index` over the equivalent source CLI commands.
 - Use source search/read tools for current implementation and memory tools for decisions and intent. Source queries reconcile changes automatically; check coverage/errors before assuming absence. Content hashes identify snapshots, not a guarantee that files cannot change afterward.
 - Source indexing requires Git and stores disposable data under `.bigbrain/cache/`, separate from authoritative Markdown memory. Do not commit the cache. Symbols/call graphs are not available in this release.
 - Read `.bigbrain/INDEX.md` (via `{cli_name} index`) before assuming project structure, past decisions, or invariants.

@@ -42,3 +42,10 @@ Implementation committed locally as 18192f5 and installed as editable BigBrain 1
 ### Details
 User switched GitHub login; git push origin main succeeded. Implementation and initial memory commits are upstream through a3e9227c38dd0bc740f0047fc641f1e325e30169. GitHub Actions run https://github.com/corbybender/bigbrain-memory/actions/runs/42850581163 passed all four matrix jobs: Windows and Ubuntu with Python 3.9 and 3.13, covering existing memory tests, source integration tests and retrieval benchmark. Prior authentication blocker is resolved. Recording this result as memory-only follow-up; no runtime changes.
 ---
+
+## [2026-11-10T16:06:30Z] - TYPE: TASK_UPDATE
+- TARGET: active_tasks
+- SUMMARY: Clarify fresh setup, upgrades and automatic source indexing
+### Details
+Documentation audit found that README covered source tools but needed explicit fresh-install/upgrade steps, lazy initialization, host reconnection and root relocation guidance. Added docs/setup.md with Windows interpreter checks, verification and recovery; updated directory layout, CLI and MCP tool lists and generated agent rules. Installer config template now documents optional source settings without changing defaults or overwriting existing config.
+---

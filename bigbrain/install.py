@@ -67,6 +67,13 @@ CONFIG_TEMPLATE = """# BigBrain configuration.
 # log.archive.md is rotated to a timestamped file once it exceeds this many
 # bytes, so the archive doesn't grow forever.
 archive_max_bytes: {archive_max_bytes}
+
+# Source tools create/refresh a disposable Git-ignored index automatically.
+# No watcher or model is required. These optional settings override defaults;
+# existing project settings are preserved when install --force is used.
+# source:
+#   max_file_bytes: 524288
+#   exclude: [dist, build, generated, coverage, vendor]
 """
 
 GIT_PRE_COMMIT_HOOK = f"""#!/bin/sh

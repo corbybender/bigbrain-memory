@@ -2,7 +2,7 @@
 id: active_tasks
 title: Active Tasks
 domain: State
-last_updated: '2026-11-10T16:04:18Z'
+last_updated: '2026-11-10T16:07:08Z'
 tags:
 - tasks
 - roadmap
@@ -26,3 +26,7 @@ schema_version: 1.0.0
 ## Log Reconciliation (2026-11-10T16:04:18Z)
 - **[TASK_UPDATE]** Upstream source indexing delivery complete; cross-platform CI passed
   - User switched GitHub login; git push origin main succeeded. Implementation and initial memory commits are upstream through a3e9227c38dd0bc740f0047fc641f1e325e30169. GitHub Actions run https://github.com/corbybender/bigbrain-memory/actions/runs/42850581163 passed all four matrix jobs: Windows and Ubuntu with Python 3.9 and 3.13, covering existing memory tests, source integration tests and retrieval benchmark. Prior authentication blocker is resolved. Recording this result as memory-only follow-up; no runtime changes.
+
+## Log Reconciliation (2026-11-10T16:07:08Z)
+- **[TASK_UPDATE]** Clarify fresh setup, upgrades and automatic source indexing
+  - Documentation audit found that README covered source tools but needed explicit fresh-install/upgrade steps, lazy initialization, host reconnection and root relocation guidance. Added docs/setup.md with Windows interpreter checks, verification and recovery; updated directory layout, CLI and MCP tool lists and generated agent rules. Installer config template now documents optional source settings without changing defaults or overwriting existing config.
