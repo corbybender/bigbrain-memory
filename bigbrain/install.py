@@ -114,7 +114,7 @@ def _upsert_block(path: Path, block: str, force: bool, report: InstallReport) ->
     report.add(f"[+] Appended BigBrain wiring to {path}")
 
 
-def _upsert_mcp_json(path: Path, force: bool, report: InstallReport) -> None:
+def _upsert_mcp_json(path: Path, force: bool, report: InstallReport, root: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {}
     if path.exists():
@@ -131,7 +131,7 @@ def _upsert_mcp_json(path: Path, force: bool, report: InstallReport) -> None:
 
     servers["bigbrain"] = {
         "command": "bigbrain",
-        "args": ["serve-mcp", "--path", "."],
+        "args": ["--path", str(root.resolve()), "serve-mcp"],
     }
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     report.add(f"[+] Registered bigbrain MCP server in {path}")
@@ -139,8 +139,9 @@ def _upsert_mcp_json(path: Path, force: bool, report: InstallReport) -> None:
 
 def _write_config(root: Path, force: bool, report: InstallReport) -> None:
     path = root / ".bigbrain" / "config.yml"
-    if path.exists() and not force:
-        report.add(f"[=] {path} already exists")
+    if path.exists():
+        # --force refreshes integrations, never owner-managed settings.
+        report.add(f"[=] Preserved existing {path}")
         return
     path.write_text(
         CONFIG_TEMPLATE.format(archive_max_bytes=core.DEFAULT_ARCHIVE_MAX_BYTES), encoding="utf-8"
@@ -247,8 +248,8 @@ def install(root: Path, force: bool = False) -> InstallReport:
     else:
         report.add(f"[=] {cursor_rule_path} already exists")
 
-    _upsert_mcp_json(root / ".mcp.json", force, report)
-    _upsert_mcp_json(root / ".cursor" / "mcp.json", force, report)
+    _upsert_mcp_json(root / ".mcp.json", force, report, root)
+    _upsert_mcp_json(root / ".cursor" / "mcp.json", force, report, root)
 
     _write_config(root, force, report)
     _wire_git_pre_commit(root, force, report)

@@ -1,7 +1,7 @@
 """Minimal MCP (Model Context Protocol) stdio server for BigBrain.
 
 Implements just enough of the MCP spec (JSON-RPC 2.0, newline-delimited
-messages over stdio) to expose the four BigBrain tools natively to any
+messages over stdio) to expose memory and source tools natively to any
 MCP-capable host (Claude Code, Cursor, etc.). No SDK dependency, so it
 works anywhere the `bigbrain` package is installed.
 """
@@ -34,6 +34,24 @@ def _text_result(text: str, is_error: bool = False) -> Dict[str, Any]:
 
 def _call_tool(root: Path, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
+        if name in ("source_status", "refresh_source_index", "search_source", "read_source", "list_source_files"):
+            from . import source
+            if name == "source_status":
+                result = source.status(root)
+            elif name == "refresh_source_index":
+                rebuild = arguments.get("rebuild", False)
+                if type(rebuild) is not bool:
+                    raise ValueError("rebuild must be a boolean")
+                result = source.refresh(root, rebuild=rebuild)
+            elif name == "search_source":
+                result = source.search(root, arguments["query"], arguments.get("top_n", 8))
+            elif name == "list_source_files":
+                result = source.list_files(root, arguments.get("prefix", ""), arguments.get("limit", 100),
+                                           arguments.get("offset", 0))
+            else:
+                result = source.read(root, arguments["path"], arguments.get("start_line", 1),
+                                     arguments.get("max_lines", 80))
+            return _text_result(json.dumps(result, indent=2))
         if name == "read_index":
             return _text_result(core.read_index(root))
         if name == "read_memory_file":

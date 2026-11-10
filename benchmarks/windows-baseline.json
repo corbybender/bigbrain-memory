@@ -1,0 +1,101 @@
+{
+  "scope": "six keyword questions over BigBrain package source; no agent or semantic-search evaluation",
+  "environment": {
+    "os": "Windows",
+    "python": "3.13.17",
+    "sqlite": "3.50.4"
+  },
+  "indexed_files": 8,
+  "cold_index_ms": 192.49,
+  "unchanged_refresh_ms": 190.33,
+  "unchanged_reparsed_files": 0,
+  "recall_at_5": 1.0,
+  "median_query_ms": 194.26,
+  "cache_bytes": 405504,
+  "cases": [
+    {
+      "query": "file lock stale timeout",
+      "expected": "bigbrain/core.py",
+      "top_paths": [
+        "bigbrain/core.py",
+        "bigbrain/source.py",
+        "bigbrain/cli.py",
+        "bigbrain/schemas.py",
+        "bigbrain/llm.py"
+      ],
+      "found": true,
+      "ms": 215.35,
+      "response_bytes": 2852
+    },
+    {
+      "query": "MCP initialize protocolVersion",
+      "expected": "bigbrain/mcp_server.py",
+      "top_paths": [
+        "bigbrain/mcp_server.py",
+        "bigbrain/install.py",
+        "bigbrain/core.py",
+        "bigbrain/source.py",
+        "bigbrain/__init__.py"
+      ],
+      "found": true,
+      "ms": 219.02,
+      "response_bytes": 3230
+    },
+    {
+      "query": "source search max lines parser",
+      "expected": "bigbrain/cli.py",
+      "top_paths": [
+        "bigbrain/cli.py",
+        "bigbrain/source.py",
+        "bigbrain/mcp_server.py",
+        "bigbrain/schemas.py",
+        "bigbrain/core.py"
+      ],
+      "found": true,
+      "ms": 190.62,
+      "response_bytes": 3508
+    },
+    {
+      "query": "git pre commit hooks install",
+      "expected": "bigbrain/install.py",
+      "top_paths": [
+        "bigbrain/install.py",
+        "bigbrain/schemas.py",
+        "bigbrain/source.py",
+        "bigbrain/cli.py",
+        "bigbrain/llm.py"
+      ],
+      "found": true,
+      "ms": 167.01,
+      "response_bytes": 3641
+    },
+    {
+      "query": "source snapshot content hash sqlite",
+      "expected": "bigbrain/source.py",
+      "top_paths": [
+        "bigbrain/source.py",
+        "bigbrain/schemas.py",
+        "bigbrain/cli.py",
+        "bigbrain/mcp_server.py",
+        "bigbrain/install.py"
+      ],
+      "found": true,
+      "ms": 197.9,
+      "response_bytes": 3288
+    },
+    {
+      "query": "LLM command timeout prompt",
+      "expected": "bigbrain/llm.py",
+      "top_paths": [
+        "bigbrain/llm.py",
+        "bigbrain/core.py",
+        "bigbrain/install.py",
+        "bigbrain/cli.py",
+        "bigbrain/schemas.py"
+      ],
+      "found": true,
+      "ms": 164.3,
+      "response_bytes": 2719
+    }
+  ]
+}

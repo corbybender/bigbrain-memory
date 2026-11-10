@@ -124,6 +124,27 @@ Log every non-trivial decision, architectural change, or task update to the tran
 Periodically (or at natural milestones / session end) trigger compilation so the log is reconciled into memory files and INDEX.md is rebuilt.
 """
 
+TOOLS.extend([
+    {"name": "list_source_files", "description": "Browse the current eligible source tree with a bounded, paginated inventory of paths, extensions, byte sizes and content hashes. Applies the same exclusions as search/read; refreshes automatically.",
+     "parameters": {"type": "object", "properties": {
+         "prefix": {"type": "string", "default": ""},
+         "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 100},
+         "offset": {"type": "integer", "minimum": 0, "maximum": 1000000, "default": 0}}, "required": []}},
+    {"name": "source_status", "description": "Reconcile the working tree and report indexed source scope, exclusions, errors and freshness. Requires Git. Does not change memory.",
+     "parameters": {"type": "object", "properties": {}, "required": []}},
+    {"name": "refresh_source_index", "description": "Refresh changed source files, remove deleted/excluded files, or rebuild the disposable local source cache. Memory is preserved.",
+     "parameters": {"type": "object", "properties": {"rebuild": {"type": "boolean", "default": False}}, "required": []}},
+    {"name": "search_source", "description": "Search current eligible source and documentation using ranked keywords. Automatically reconciles working-tree changes. Returns bounded excerpts, paths, line ranges, content hashes and coverage/freshness. Read source for detail; use memory tools for decisions and intent.",
+     "parameters": {"type": "object", "properties": {
+         "query": {"type": "string", "minLength": 1, "maxLength": 2000},
+         "top_n": {"type": "integer", "minimum": 1, "maximum": 50, "default": 8}}, "required": ["query"]}},
+    {"name": "read_source", "description": "Read an eligible source file from a freshly reconciled snapshot. Returns bounded text, line numbers and content hash. Paths must be project-relative; exclusions and repository boundaries apply.",
+     "parameters": {"type": "object", "properties": {
+         "path": {"type": "string"},
+         "start_line": {"type": "integer", "minimum": 1, "maximum": 10000000, "default": 1},
+         "max_lines": {"type": "integer", "minimum": 1, "maximum": 200, "default": 80}}, "required": ["path"]}},
+])
+
 
 def shell_wiring_block(cli_name: str = "bigbrain") -> str:
     """Universal instructions for hosts that only have shell/bash access
@@ -133,7 +154,8 @@ def shell_wiring_block(cli_name: str = "bigbrain") -> str:
 ## BigBrain Memory System
 
 This project uses [BigBrain](https://github.com/) for deterministic,
-filesystem-first memory. All state lives in plain Markdown under `.bigbrain/`.
+filesystem-first memory. Project memory lives in plain Markdown under `.bigbrain/`;
+the optional source index is a disposable local cache.
 
 {BOOT_PROMPT}
 ### Available commands (run via shell)
@@ -144,6 +166,11 @@ filesystem-first memory. All state lives in plain Markdown under `.bigbrain/`.
 | Read one memory file | `{cli_name} read <file_id>` |
 | Find a file by exact word/phrase | `{cli_name} grep <term>` |
 | Find a file by rough description (unknown wording) | `{cli_name} search <query>` |
+| Search current source and docs | `{cli_name} source-search "query"` |
+| Browse indexed source files | `{cli_name} source-files --prefix <directory/>` |
+| Read bounded source lines | `{cli_name} source-read <relative-path> --start-line 1 --max-lines 80` |
+| Check source scope, errors and freshness | `{cli_name} source-status` |
+| Refresh/rebuild derived source cache | `{cli_name} source-refresh [--rebuild]` |
 | Log a decision/task/learning/invariant | `{cli_name} log --type <{'|'.join(LOG_TYPES)}> --target <file_id> --summary "..." --details "..."` |
 | Reconcile the log into memory + rebuild the index | `{cli_name} compile --reason "..."` |
 | Same, with LLM-assisted dedup/contradiction-resolution | `{cli_name} compile --reason "..." --llm` |
@@ -151,6 +178,8 @@ filesystem-first memory. All state lives in plain Markdown under `.bigbrain/`.
 | Validate and repair .bigbrain/ (stale locks, missing frontmatter, stale index, schema migration) | `{cli_name} doctor --fix` |
 
 Rules:
+- Use source search/read tools for current implementation and memory tools for decisions and intent. Source queries reconcile changes automatically; check coverage/errors before assuming absence. Content hashes identify snapshots, not a guarantee that files cannot change afterward.
+- Source indexing requires Git and stores disposable data under `.bigbrain/cache/`, separate from authoritative Markdown memory. Do not commit the cache. Symbols/call graphs are not available in this release.
 - Read `.bigbrain/INDEX.md` (via `{cli_name} index`) before assuming project structure, past decisions, or invariants.
 - Never hand-edit files under `.bigbrain/memory/` or `.bigbrain/INDEX.md` directly — write through `{cli_name} log` and `{cli_name} compile` so the index stays consistent.
 - Log non-trivial decisions, architecture changes, and task-state updates as they happen, not in a batch at the end.

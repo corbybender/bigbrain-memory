@@ -94,27 +94,30 @@ class LockError(RuntimeError):
 @contextlib.contextmanager
 def file_lock(p: Paths, timeout: float = 10.0, stale_after: float = 120.0):
     """Simple advisory lock via a lock file. Stale locks are reclaimed."""
-    deadline = time.time() + timeout
+    deadline = time.monotonic() + timeout
     while True:
         try:
             fd = os.open(str(p.lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, str(os.getpid()).encode("utf-8"))
-            os.close(fd)
+            try:
+                os.write(fd, str(os.getpid()).encode("utf-8"))
+            finally:
+                os.close(fd)
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError) as exc:
+            # Windows can report access denied while another process closes
+            # a deleted lock file. Treat that transient state as contention.
             try:
                 age = time.time() - p.lock_file.stat().st_mtime
-            except FileNotFoundError:
-                continue
+            except (FileNotFoundError, PermissionError):
+                age = 0
             if age > stale_after:
-                with contextlib.suppress(FileNotFoundError):
+                with contextlib.suppress(FileNotFoundError, PermissionError):
                     p.lock_file.unlink()
-                continue
-            if time.time() > deadline:
+            if time.monotonic() >= deadline:
                 raise LockError(
-                    f"Could not acquire {p.lock_file}: locked by another process."
-                )
-            time.sleep(0.1)
+                    f"Could not acquire {p.lock_file}: locked or access denied."
+                ) from exc
+            time.sleep(0.01)
     try:
         yield
     finally:

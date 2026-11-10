@@ -3,6 +3,104 @@
 Deterministic, filesystem-first memory and context-management engine for LLM
 coding agents.
 
+Version 1.1 adds a local, rebuildable **source index** alongside the existing
+Markdown memory. Agents can browse, search and read current source through
+either the CLI or MCP. Existing memory commands and formats are unchanged.
+
+## Source context
+
+```bash
+bigbrain source-status
+bigbrain source-files --prefix bigbrain/ --limit 20
+bigbrain source-search "source cache recovery" --top 5
+bigbrain source-read bigbrain/source.py --start-line 1 --max-lines 60
+bigbrain source-refresh --rebuild
+```
+
+Use `--path <project-root>` before or after the command to target another
+project. Git must be installed and the project must be inside a Git working
+tree; an explicitly selected subdirectory indexes only that subtree. No Git
+commit, model, API key, vector service or background daemon is needed.
+
+Source tools discover tracked and untracked files, honoring Git ignore rules
+(including rules matching tracked files). They reconcile the working tree
+before every query, so edits, renames, deletions, ignore changes and branch
+switches are reflected without manual refresh. Eligible files are hashed on
+every scan; unchanged files reuse their indexed chunks. This detects edits
+even when file size and modification time are unchanged.
+
+The source index is disposable SQLite/FTS5 data under `.bigbrain/cache/`,
+automatically excluded from Git by a cache-local ignore file. Markdown memory
+remains authoritative for decisions and intent; source results provide current
+implementation evidence. Source operations never rewrite memory. Rebuild a
+damaged or incompatible cache with `source-refresh --rebuild`.
+
+Results include a scope/freshness report, paths, SHA-256 hashes, and bounded
+excerpts or line ranges. Search returns the best chunk per distinct file, with
+deterministic lexical BM25 ranking and camelCase/snake_case token splitting.
+Reads are limited to 200 lines and 16,000 characters; search excerpts to 1,600
+characters per file and 50 files per request. Inventory is paginated up to 200
+files per request. A hash identifies the bytes read during reconciliation;
+files can change after that scan. Inventory pages can change between calls.
+
+By default, indexing skips non-UTF-8/binary files, files larger than 512 KiB,
+symlinks and Windows reparse points, dependency/cache directories, common
+credential filenames/extensions, and `dist`, `build`, `generated`, `coverage`
+and `vendor`. These filename exclusions are **not a secret scanner**; add
+project-specific sensitive paths to Git ignores or source exclusions. Text
+documentation and configuration are eligible alongside code.
+
+Optional `.bigbrain/config.yml` settings:
+
+```yaml
+source:
+  max_file_bytes: 524288   # 1 through 10485760
+  exclude:               # replaces the default generated-output exclusions
+    - dist
+    - build
+    - generated
+    - coverage
+    - vendor
+    - private-settings.json
+    - docs/internal/*
+```
+
+Patterns match a full project-relative path or any path component, using
+case-sensitive shell wildcards (`*` can span `/` in full-path matching).
+Git ignores, credential and dependency/cache exclusions, and link restrictions
+still apply when `exclude: []` is configured. Files skipped by policy are
+counted by reason. Read failures are counted (with up to 50 details) and mark coverage
+`complete: false`; CLI commands exit 1 for incomplete coverage. MCP clients
+must inspect this report before treating an empty result as evidence of absence.
+
+The MCP tools are `source_status`, `list_source_files`,
+`refresh_source_index`, `search_source`, and `read_source`. Use memory tools
+to retrieve rationale, then source tools to check its current implementation.
+Run `bigbrain install --force` after upgrading to refresh tool schemas and
+agent instructions; existing configuration settings are preserved. Restart/reconnect the MCP host
+to discover new tools. New MCP registrations use an absolute project root,
+independent of the host's working directory.
+
+This release uses query-time reconciliation rather than a watcher. It hashes
+all eligible files per request, so latency grows with repository size. Source
+indexing requires SQLite FTS5 and Git. Symbol resolution, call graphs,
+cross-language dependency analysis, embeddings and automatic memory/source
+contradiction resolution are not implemented.
+
+### Source validation
+
+```bash
+python tests/test_core.py
+python -m unittest discover -s tests -p test_source.py -v
+python benchmarks/source_retrieval.py
+```
+
+CI runs these checks on Windows and Linux with Python 3.9 and 3.13. The benchmark
+uses six fixed keyword questions over an isolated copy of BigBrain's package
+source and reports recall@5, indexing/query times, response sizes and cache size.
+It is a reproducible smoke benchmark, not proof of improved agent task success
+or performance on large repositories.
+
 ## TL;DR
 
 - **What it is:** persistent project memory as plain Markdown files under
@@ -214,8 +312,8 @@ against — `doctor --fix` is the migration command.
 
 ### MCP server
 
-For hosts with native MCP tool-calling, `bigbrain serve-mcp` exposes six
-tools matching the schema in `bigbrain/schemas.py` / `.bigbrain/tools.json`:
+For hosts with native MCP tool-calling, `bigbrain serve-mcp` exposes six memory
+tools and five source tools matching `bigbrain/schemas.py` / `.bigbrain/tools.json`:
 `read_index`, `read_memory_file`, `append_transaction_log`, `compile_memory`
 (with an optional `use_llm` argument), `search_memory` (ranked fuzzy
 discovery), and `grep_memory` (exact substring). It speaks newline-delimited
