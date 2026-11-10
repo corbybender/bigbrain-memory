@@ -70,3 +70,10 @@ User source-status process on Q:\valedit2026 remains CPU-active with a growing S
 ### Details
 Fix installed locally as 1.1.1. Stopped only verified original source-status worker PID 13740 after validating the new implementation; SQLite rolled back the interrupted derived-cache transaction. A user source-files command acquired the lock and completed the updated build: 16665 eligible files, zero read errors, schema v2. Follow-up source-status completed with zero updated/removed files. SHA-256 comparison of all 14 existing memory/log Markdown files found zero changes. Added indexed chunk mapping, no deletes for new files, in-place v1 migration, stderr progress and Ctrl+C rollback handling. All 19 memory and 28 source tests pass; one real Windows symlink test skips. Added 3000-file synthetic cold/warm/edit-delete scale benchmark and 1000-file CI smoke check.
 ---
+
+## [2026-11-10T16:46:14Z] - TYPE: TASK_UPDATE
+- TARGET: active_tasks
+- SUMMARY: Indexing performance and progress fix delivered; CI passed
+### Details
+Version 1.1.1 fix pushed in f90716030c6123ac8938a3e2326546af8ef26aea. All four Windows/Linux Python 3.9/3.13 CI jobs passed memory tests, 29 source tests, retrieval benchmark and 1000-file scale smoke check: https://github.com/corbybender/bigbrain-memory/actions/runs/42857609626. Current user's source index completed for 16665 files; follow-up refresh reports zero updates and no errors. Repeated SHA-256 verification found all 14 existing project memory/log Markdown files unchanged. CLI installation upgraded locally; already-running MCP hosts still require reconnection for the new implementation.
+---

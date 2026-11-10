@@ -2,7 +2,7 @@
 id: active_tasks
 title: Active Tasks
 domain: State
-last_updated: '2026-11-10T16:44:04Z'
+last_updated: '2026-11-10T16:46:14Z'
 tags:
 - tasks
 - roadmap
@@ -40,3 +40,7 @@ schema_version: 1.0.0
   - User source-status process on Q:\valedit2026 remains CPU-active with a growing SQLite cache after several minutes; Git discovers about 47848 paths before exclusions. Identified repeated full FTS path scans, including for brand-new files, in refresh. Implementing indexed chunk rowid mapping with in-place v1 cache migration, skipping deletes for new files, throttled stderr CLI progress and a synthetic multi-thousand-file regression benchmark. Existing user run left undisturbed and no memory files modified by diagnostics.
 - **[TASK_UPDATE]** Large-repository indexing completed with progress and memory unchanged
   - Fix installed locally as 1.1.1. Stopped only verified original source-status worker PID 13740 after validating the new implementation; SQLite rolled back the interrupted derived-cache transaction. A user source-files command acquired the lock and completed the updated build: 16665 eligible files, zero read errors, schema v2. Follow-up source-status completed with zero updated/removed files. SHA-256 comparison of all 14 existing memory/log Markdown files found zero changes. Added indexed chunk mapping, no deletes for new files, in-place v1 migration, stderr progress and Ctrl+C rollback handling. All 19 memory and 28 source tests pass; one real Windows symlink test skips. Added 3000-file synthetic cold/warm/edit-delete scale benchmark and 1000-file CI smoke check.
+
+## Log Reconciliation (2026-11-10T16:46:14Z)
+- **[TASK_UPDATE]** Indexing performance and progress fix delivered; CI passed
+  - Version 1.1.1 fix pushed in f90716030c6123ac8938a3e2326546af8ef26aea. All four Windows/Linux Python 3.9/3.13 CI jobs passed memory tests, 29 source tests, retrieval benchmark and 1000-file scale smoke check: https://github.com/corbybender/bigbrain-memory/actions/runs/42857609626. Current user's source index completed for 16665 files; follow-up refresh reports zero updates and no errors. Repeated SHA-256 verification found all 14 existing project memory/log Markdown files unchanged. CLI installation upgraded locally; already-running MCP hosts still require reconnection for the new implementation.
